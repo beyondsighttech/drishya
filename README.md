@@ -3,8 +3,6 @@
 Image descriptions for NVDA using **SmolVLM2 500M**. Describe the screen, current
 focus or navigator object, then review or copy the result.
 
-Created and maintained by **Aakash**. Free and open source under GPL-2.0-or-later.
-
 ## Installation
 
 1. [Download Drishya 0.2.0](https://github.com/beyondsighttech/drishya/releases/download/v0.2.0/drishya-0.2.0.nvda-addon), open the file to install it, and restart NVDA.
