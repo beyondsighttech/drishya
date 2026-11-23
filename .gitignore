@@ -1,0 +1,13 @@
+.tools/
+.research/
+.venv/
+.pytest_cache/
+__pycache__/
+*.pyc
+build/
+dist/
+runtime-cache/
+qa/artifacts/
+.superpowers/
+docs/PROGRESS.md
+docs/superpowers/

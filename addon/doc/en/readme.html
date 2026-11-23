@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><title>Drishya user guide</title><body>
+<h1>Drishya</h1><p>Image descriptions for NVDA using SmolVLM2 500M.</p>
+<p>Created and maintained by <strong>Aakash</strong>. Free and open source under GPL-2.0-or-later.</p>
+<h2>Install and download</h2><ol><li>Install the add-on and restart NVDA.</li>
+<li>If the model is missing, choose Download or Later in the welcome prompt. The one-time download is about 662 MB and requires internet.</li>
+<li>Settings shows progress; Escape closes the dialog and cancels. You can retry later.</li>
+<li>After the model is ready, descriptions work offline. No GPU, separate Python, Ollama or external API key is required.</li></ol>
+<p>If you choose Later, open Settings from the description menu or NVDA's Tools menu. Requesting a description without the model also offers the download.</p>
+<h2>Describe</h2><ol><li>Place focus or the navigator on visible content.</li>
+<li>Press <strong>NVDA+Shift+I</strong>, use arrows and Enter, and choose Entire screen, Current focus or Navigator object.</li>
+<li>In the result, Alt+C copies, Alt+D focuses the description, Alt+R retries the captured image, and Escape closes/cancels.</li></ol>
+<p>Last description reopens the recent result. Invisible objects must be brought into view. Capture happens before the menu appears.</p>
+<h2>Settings</h2><p>Available in the menu and NVDA's Tools menu. Change detail (Alt+D), maximum image size (Alt+I), CPU threads (Alt+T), and automatic reading (Alt+R). Alt+M downloads/verifies the model; Alt+S saves; Escape closes/cancels.</p>
+<p>Defaults: concise, 1024 pixels and four threads. Smaller inputs can be faster but lose small details. Model memory is released after five idle minutes or NVDA exit.</p>
+<h2>Screen Curtain</h2><p>Where supported, Windows Graphics Capture captures while the curtain remains on. Drishya does not disable it automatically. If WGC is unavailable or fails, Drishya asks you to disable Screen Curtain and retry. Menu and Settings remain accessible.</p>
+<h2>Privacy and limits</h2><p>Images are processed on this computer, not uploaded. Captures are discarded on close. The last description stays in memory until settings change, the session locks or NVDA exits. Copy writes text to the clipboard.</p>
+<p>English descriptions; Windows x64 and NVDA 2026.1+. Capture backend availability depends on NVDA. Predictions can omit or invent details; quantization and resizing are not guaranteed lossless.</p>
+<h2>Troubleshooting</h2><p>Missing/corrupt model: Download / verify model in Settings. Timeout: smaller image size. Clipboard busy: retry Copy. Shortcut conflict: change the binding in NVDA Input Gestures.</p>
+<h2>Support</h2><p><a href="https://github.com/beyondsighttech/drishya">Source code</a>, <a href="https://github.com/beyondsighttech/drishya/releases">downloads</a> and <a href="https://github.com/beyondsighttech/drishya/issues">bug reports</a>.</p>
+</body></html>

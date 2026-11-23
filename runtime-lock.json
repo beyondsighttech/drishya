@@ -1,0 +1,31 @@
+{
+  "schema": 1,
+  "llama_release": "b12359",
+  "smol_revision": "ccd7aae53bcb1997355c2f094959e72b3642ce17",
+  "assets": [
+    {
+      "name": "SmolVLM2-500M-Video-Instruct-Q8_0.gguf",
+      "kind": "file",
+      "destination": "models/SmolVLM2-500M-Video-Instruct-Q8_0.gguf",
+      "url": "https://huggingface.co/ggml-org/SmolVLM2-500M-Video-Instruct-GGUF/resolve/ccd7aae53bcb1997355c2f094959e72b3642ce17/SmolVLM2-500M-Video-Instruct-Q8_0.gguf",
+      "size": 436808704,
+      "sha256": "6f67b8036b2469fcd71728702720c6b51aebd759b78137a8120733b4d66438bc"
+    },
+    {
+      "name": "mmproj-SmolVLM2-500M-Video-Instruct-f16.gguf",
+      "kind": "file",
+      "destination": "models/mmproj-SmolVLM2-500M-Video-Instruct-f16.gguf",
+      "url": "https://huggingface.co/ggml-org/SmolVLM2-500M-Video-Instruct-GGUF/resolve/ccd7aae53bcb1997355c2f094959e72b3642ce17/mmproj-SmolVLM2-500M-Video-Instruct-f16.gguf",
+      "size": 199470624,
+      "sha256": "b5dc8ebe7cbeab66a5369693960a52515d7824f13d4063ceca78431f2a6b59b0"
+    },
+    {
+      "name": "llama-b12359-bin-win-cpu-x64.zip",
+      "url": "https://github.com/ggml-org/llama.cpp/releases/download/b12359/llama-b12359-bin-win-cpu-x64.zip",
+      "size": 25097509,
+      "sha256": "837c1655e87df3b66989f4be33a792a1399c785bf259038dc75c900096683e69",
+      "kind": "zip",
+      "destination": "llama"
+    }
+  ]
+}
