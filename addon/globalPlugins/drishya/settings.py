@@ -1,7 +1,7 @@
 """Validated options, independent of NVDA's configuration implementation."""
 from dataclasses import dataclass
 
-ADDON_VERSION = "0.2.0"
+ADDON_VERSION = "0.2.1"
 MODEL_NAME = "SmolVLM2 500M"
 
 CONFIG_SPEC = {

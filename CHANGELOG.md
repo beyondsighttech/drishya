@@ -1,5 +1,11 @@
 # Release notes
 
+## 0.2.1
+
+- Open Drishya settings from NVDA’s Tools menu.
+- Correct the labels and access keys NVDA reports for description detail, maximum image size, and CPU threads.
+- Add assignable gestures to describe the entire screen, current window, current focus, and navigator object directly.
+
 ## 0.2.0
 
 - Run capture/menu work outside NVDA's script pump, keeping speech and input responsive.

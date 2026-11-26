@@ -1,4 +1,15 @@
-# Drishya 0.2.0 validation
+# Drishya validation
+
+## 0.2.1
+
+The full suite passed 74 tests, including the pinned SmolVLM2 runtime test.
+On an isolated NVDA 2026.3.1 desktop, the Tools command opened Settings.
+The integration test verified the labels, values, and access keys for description
+detail, maximum image size, and CPU threads, plus their Tab order. NVDA's Input
+Gestures listed four assignable commands for screen, window, focus, and navigator
+object descriptions. Speech playback was off during the isolated test.
+
+## 0.2.0
 
 Validated with NVDA 2026.3.1 on Windows x64 and Python 3.13.17.
 Capture/menu work runs through wx.CallAfter after the script returns, so the

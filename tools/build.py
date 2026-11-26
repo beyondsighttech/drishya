@@ -11,7 +11,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "addon/globalPlugins/drishya"))
 from assets import BUDGET, verify_runtime
 
-VERSION = "0.2.0"
+VERSION = "0.2.1"
 
 
 def build_package(destination, full=False, runtime=None, addon_root=None):

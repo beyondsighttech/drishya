@@ -5,7 +5,7 @@ focus or navigator object, then review or copy the result.
 
 ## Installation
 
-1. [Download Drishya 0.2.0](https://github.com/beyondsighttech/drishya/releases/download/v0.2.0/drishya-0.2.0.nvda-addon), open the file to install it, and restart NVDA.
+1. [Download Drishya 0.2.1](https://github.com/beyondsighttech/drishya/releases/download/v0.2.1/drishya-0.2.1.nvda-addon), open the file to install it, and restart NVDA.
 2. If the model is missing, Drishya offers **Download** or **Later**.
 3. Choose Download for the one-time, approximately **662 MB** model/runtime
    download. Settings shows progress and allows cancellation.
@@ -21,6 +21,8 @@ description without the model also offers the download.
 
 - **NVDA+Shift+I:** open the description menu; use arrows and Enter.
 - **Entire screen / Current focus / Navigator object:** choose the target.
+- **NVDA → Preferences → Input Gestures → Drishya** lets you assign shortcuts
+  to describe the entire screen, current window, current focus, or navigator object directly.
 - **Alt+C:** copy. **Alt+D:** review description. **Alt+R:** retry the snapshot.
 - **Escape:** close/cancel. **Last description:** reopen the recent result.
 - **Settings:** available in the menu and NVDA's Tools menu.

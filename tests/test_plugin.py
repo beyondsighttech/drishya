@@ -8,6 +8,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 import wx
+import wx.adv
 import tests
 
 
@@ -52,7 +53,10 @@ class PluginTests(unittest.TestCase):
         self.frame = wx.Frame(None, title="NVDA API test")
         self.frame.prePopup = lambda: None
         self.frame.postPopup = lambda: None
-        self.frame.sysTrayIcon = types.SimpleNamespace(toolsMenu=wx.Menu())
+        self.tray = wx.adv.TaskBarIcon()
+        self.tray.toolsMenu = wx.Menu()
+        self.addCleanup(self.tray.Destroy)
+        self.frame.sysTrayIcon = self.tray
         self.api = types.ModuleType("api")
         self.api.getFocusObject = lambda: types.SimpleNamespace(location=(100, 200, 300, 400))
         self.api.getNavigatorObject = lambda: types.SimpleNamespace(location=(20, 40, 60, 80))
@@ -102,6 +106,65 @@ class PluginTests(unittest.TestCase):
         self.assertIs(observed[0][0], captured)
         self.assertEqual(observed[0][1].x, 100)
         self.assertEqual(observed[0][2].x, 20)
+
+    def test_tray_tools_item_opens_settings(self):
+        item_id = self.plugin.toolsItem.GetId()
+        event = wx.CommandEvent(wx.EVT_MENU.typeId, item_id)
+        event.SetEventObject(self.tray.toolsMenu)
+        pending = []
+        with patch.object(wx, "CallAfter", side_effect=pending.append):
+            self.assertTrue(self.tray.ProcessEvent(event))
+        self.assertIsNone(self.plugin.settingsDialog)
+        with patch.object(self.plugin, "_show_dialog"):
+            pending.pop()()
+        self.assertEqual(self.plugin.settingsDialog.read_options(), self.plugin.options())
+
+        self.plugin.terminate()
+        self.assertIsNone(self.tray.toolsMenu.FindItemById(item_id))
+        self.assertFalse(self.tray.ProcessEvent(event))
+
+    def test_direct_gestures_capture_the_selected_target_without_a_menu(self):
+        from drishya.geometry import Rect
+
+        original_objects = {
+            "getForegroundObject": Rect(700, 600, 500, 400),
+            "getFocusObject": Rect(100, 200, 300, 400),
+            "getNavigatorObject": Rect(20, 40, 60, 80),
+        }
+        locations = {getter: (rect.x, rect.y, rect.width, rect.height)
+                     for getter, rect in original_objects.items()}
+        for getter in locations:
+            setattr(self.api, getter, lambda getter=getter: types.SimpleNamespace(location=locations.get(getter)))
+        snapshot = types.SimpleNamespace(desktop=Rect(0, 0, 1920, 1080))
+        self.module.capture_snapshot = lambda: snapshot
+        self.plugin._open_menu = lambda *args: self.fail("A direct gesture opened the menu")
+        scripts = (
+            ("script_describeScreen", snapshot.desktop, "Entire screen"),
+            ("script_describeWindow", original_objects["getForegroundObject"], "Current window"),
+            ("script_describeFocus", original_objects["getFocusObject"], "Current focus"),
+            ("script_describeNavigator", original_objects["getNavigatorObject"], "Navigator object"),
+        )
+        for name, target, title in scripts:
+            with self.subTest(script=name):
+                observed, pending = [], []
+                self.plugin._describe_target = lambda *args: observed.append(args)
+                with patch.object(wx, "CallAfter", side_effect=lambda callback, *args: pending.append((callback, args))):
+                    getattr(self.plugin, name)(None)
+                self.assertEqual(observed, [])
+                with patch.dict(locations, clear=True):
+                    callback, args = pending.pop()
+                    callback(*args)
+                self.assertEqual(observed, [(snapshot, target, title)])
+
+    def test_queued_direct_capture_stops_when_the_desktop_locks(self):
+        pending = []
+        with patch.object(wx, "CallAfter", side_effect=lambda callback, *args: pending.append((callback, args))):
+            self.plugin.script_describeScreen(None)
+        self.locked = True
+        self.module.capture_snapshot = lambda: self.fail("Captured locked desktop")
+        callback, args = pending.pop()
+        callback(*args)
+        self.assertIn("locked", self.messages[-1].lower())
 
     def test_capture_error_does_not_hide_settings_menu(self):
         def fail():

@@ -40,7 +40,7 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
         self.settingsDialog = None
         self.downloadDialog = None
         self._menuOpen = False
-        self._menuPending = False
+        self._capturePending = False
         self._promptTimer = None
         self.lastResult = None
         self.image = None
@@ -58,8 +58,9 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
         self._session_registered = True
         self._idleTimer = wx.Timer(gui.mainFrame)
         gui.mainFrame.Bind(wx.EVT_TIMER, self._release_idle, self._idleTimer)
-        self.toolsItem = gui.mainFrame.sysTrayIcon.toolsMenu.Append(wx.ID_ANY, "Drishya &settings…")
-        gui.mainFrame.Bind(wx.EVT_MENU, lambda event: wx.CallAfter(self._show_settings), self.toolsItem)
+        tray = gui.mainFrame.sysTrayIcon
+        self.toolsItem = tray.toolsMenu.Append(wx.ID_ANY, "Drishya &settings…")
+        tray.Bind(wx.EVT_MENU, self._on_tools_settings, self.toolsItem)
         self._promptTimer = wx.CallLater(2000, self._offer_download)
 
     def options(self):
@@ -84,34 +85,68 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 
     @script(description="Open the Drishya local image description menu", gesture="kb:NVDA+shift+i")
     def script_drishyaMenu(self, gesture):
-        if not self._allowed():
-            return
-        if self._menuOpen or self._menuPending:
-            return
-        if self.downloadDialog:
-            self.downloadDialog.Raise()
-            return
-        if self.controller.busy or self.controller.running or self.setupController.busy or self.setupController.running:
-            ui.message("Drishya is busy. Close the current dialog to cancel first.")
+        if self._capturePending or not self._can_start_capture():
             return
         focus = self._location(api.getFocusObject())
         nav = self._location(api.getNavigatorObject())
-        self._menuPending = True
-        wx.CallAfter(self._capture_and_open, focus, nav)
+        self._queue_capture(lambda snapshot, error: self._open_menu(snapshot, focus, nav, error))
 
-    def _capture_and_open(self, focus, nav):
-        if not self._allowed() or self._menuOpen or self.downloadDialog:
-            self._menuPending = False
+    @script(description="Describe the entire screen")
+    def script_describeScreen(self, gesture):
+        self._queue_description("Entire screen")
+
+    @script(description="Describe the current window")
+    def script_describeWindow(self, gesture):
+        self._queue_description("Current window", api.getForegroundObject)
+
+    @script(description="Describe the current focus")
+    def script_describeFocus(self, gesture):
+        self._queue_description("Current focus", api.getFocusObject)
+
+    @script(description="Describe the navigator object")
+    def script_describeNavigator(self, gesture):
+        self._queue_description("Navigator object", api.getNavigatorObject)
+
+    def _can_start_capture(self):
+        if not self._allowed() or self._menuOpen:
+            return False
+        if self.downloadDialog:
+            self.downloadDialog.Raise()
+            return False
+        if self.controller.busy or self.controller.running or self.setupController.busy or self.setupController.running:
+            ui.message("Drishya is busy. Close the current dialog to cancel first.")
+            return False
+        return True
+
+    def _queue_description(self, title, get_object=None):
+        if self._capturePending or not self._can_start_capture():
+            return
+        target = None
+        if get_object is not None:
+            target = self._location(get_object())
+            if target is None:
+                ui.message("This object has no visible image area. Bring it into view and try again.")
+                return
+        self._queue_capture(lambda snapshot, error: self._describe_capture(snapshot, error, title, target))
+
+    def _queue_capture(self, on_capture):
+        self._capturePending = True
+        # PopupMenu has its own native message loop. Defer until NVDA's
+        # non-reentrant script pump has returned so speech and events can run.
+        wx.CallAfter(self._capture, on_capture)
+
+    def _capture(self, on_capture):
+        if not self._can_start_capture():
+            self._capturePending = False
             return
         capture_error = None
         try:
             snapshot = capture_snapshot()
         except Exception as error:
             snapshot, capture_error = None, str(error)
-        self._menuPending = False
-        # PopupMenu has its own native message loop. Never enter it from NVDA's
-        # non-reentrant core/script pump, or speech/events/watchdog stop pumping.
-        self._open_menu(snapshot, focus, nav, capture_error)
+        finally:
+            self._capturePending = False
+        on_capture(snapshot, capture_error)
 
     def _open_menu(self, snapshot, focus, nav, capture_error=None):
         if not self._allowed() or self._menuOpen:
@@ -119,11 +154,8 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
         menu = wx.Menu()
         handlers = []
 
-        def describe(target, title):
-            if snapshot is None:
-                ui.message(capture_error or "Screen capture is unavailable. Please try again.")
-                return
-            self._describe_target(snapshot, target, title)
+        def describe(title, target=None):
+            self._describe_capture(snapshot, capture_error, title, target)
 
         def item(label, callback, enabled=True):
             entry = menu.Append(wx.ID_ANY, label)
@@ -131,9 +163,9 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
             gui.mainFrame.Bind(wx.EVT_MENU, lambda event: wx.CallAfter(callback), id=entry.GetId())
             handlers.append(entry.GetId())
 
-        item("&Entire screen", lambda: describe(snapshot.desktop if snapshot else None, "Entire screen"))
-        item("Current &focus", lambda: describe(focus, "Current focus"), focus is not None)
-        item("&Navigator object", lambda: describe(nav, "Navigator object"), nav is not None)
+        item("&Entire screen", lambda: describe("Entire screen"))
+        item("Current &focus", lambda: describe("Current focus", focus), focus is not None)
+        item("&Navigator object", lambda: describe("Navigator object", nav), nav is not None)
         menu.AppendSeparator()
         item("&Last description", self._show_last, self.lastResult is not None)
         item("&Settings…", self._show_settings)
@@ -148,6 +180,12 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
             for identifier in handlers:
                 gui.mainFrame.Unbind(wx.EVT_MENU, id=identifier)
             menu.Destroy()
+
+    def _describe_capture(self, snapshot, capture_error, title, target):
+        if snapshot is None:
+            ui.message(capture_error or "Screen capture is unavailable. Please try again.")
+            return
+        self._describe_target(snapshot, target if target is not None else snapshot.desktop, title)
 
     def _describe_target(self, snapshot, target, title):
         if not self._allowed():
@@ -230,7 +268,10 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
         self.resultDialog.show_result(result.text, result.model, result.seconds)
         self._show_dialog(self.resultDialog)
 
-    def _show_settings(self, event=None):
+    def _on_tools_settings(self, event):
+        wx.CallAfter(self._show_settings)
+
+    def _show_settings(self):
         if not self._allowed():
             return
         if self.controller.busy or self.controller.running:
@@ -258,7 +299,7 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
     def _offer_download(self, force=False):
         if not self._allowed() or self._runtime_installed() or self.downloadDialog:
             return
-        if not force and (self._menuOpen or self._menuPending or self.settingsDialog or self.resultDialog or
+        if not force and (self._menuOpen or self._capturePending or self.settingsDialog or self.resultDialog or
                           config.conf["drishya"].get("setup_prompt_version", "") == ADDON_VERSION):
             return
         config.conf["drishya"]["setup_prompt_version"] = ADDON_VERSION
@@ -391,8 +432,9 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
         if self._session_registered:
             post_sessionLockStateChanged.unregister(self._session_changed)
         if self.toolsItem:
-            gui.mainFrame.Unbind(wx.EVT_MENU, id=self.toolsItem.GetId())
-            gui.mainFrame.sysTrayIcon.toolsMenu.Remove(self.toolsItem)
+            tray = gui.mainFrame.sysTrayIcon
+            tray.Unbind(wx.EVT_MENU, id=self.toolsItem.GetId(), handler=self._on_tools_settings)
+            tray.toolsMenu.Remove(self.toolsItem)
             self.toolsItem.Destroy()
         if self._idleTimer:
             self._idleTimer.Stop()

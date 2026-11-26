@@ -97,22 +97,21 @@ class SettingsDialog(wx.Dialog):
         grid = wx.FlexGridSizer(cols=2, vgap=12, hgap=16)
         grid.AddGrowableCol(1)
 
-        def field(label, control):
+        def field(label, control_class, **kwargs):
+            # Windows associates a control with the preceding native label.
             static = wx.StaticText(self, label=label)
-            control.MoveAfterInTabOrder(static)
+            control = control_class(self, **kwargs)
             grid.Add(static, 0, wx.ALIGN_CENTER_VERTICAL)
             grid.Add(control, 1, wx.EXPAND)
+            return control
 
         box.Add(wx.StaticText(self, label="Image description model: SmolVLM2 500M"),
                 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 16)
-        self.detail = wx.Choice(self, choices=["Concise", "Detailed"])
+        self.detail = field("Description &detail", wx.Choice, choices=["Concise", "Detailed"])
         self.detail.SetSelection(0 if options.detail == "concise" else 1)
-        field("Description &detail", self.detail)
-        self.size = wx.Choice(self, choices=[str(size) + " pixels" for size in self._sizes])
+        self.size = field("Maximum &image size", wx.Choice, choices=[f"{size} pixels" for size in self._sizes])
         self.size.SetSelection(self._sizes.index(options.max_side))
-        field("Maximum &image size", self.size)
-        self.threads = wx.SpinCtrl(self, min=1, max=12, initial=options.threads)
-        field("CPU &threads", self.threads)
+        self.threads = field("CPU &threads", wx.SpinCtrl, min=1, max=12, initial=options.threads)
         box.Add(grid, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 16)
         self.speak = wx.CheckBox(self, label="&Read descriptions aloud automatically")
         self.speak.SetValue(options.speak)

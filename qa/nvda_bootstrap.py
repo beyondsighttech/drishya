@@ -29,6 +29,39 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
         if not passed:
             raise AssertionError(name)
 
+    def check_settings_controls(self, dialog):
+        import winUser
+        from NVDAObjects.IAccessible import getNVDAObjectFromEvent
+
+        # wx.SpinCtrl focuses a separate native edit control (its up/down buddy).
+        threads_edit = winUser.sendMessage(dialog.threads.GetHandle(), 0x046A, 0, 0)  # UDM_GETBUDDY
+        expected = {
+            "Description detail": (dialog.detail.GetHandle(), "Concise", "alt+d"),
+            "Maximum image size": (dialog.size.GetHandle(), "1024 pixels", "alt+i"),
+            "CPU threads": (threads_edit, "4", "alt+t"),
+        }
+        self.report["settings_controls"] = actual = {}
+        for label, (handle, value, shortcut) in expected.items():
+            obj = getNVDAObjectFromEvent(handle, winUser.OBJID_CLIENT, 0)
+            self.check(f"Native accessibility object for {label}", obj is not None)
+            actual[label] = dict(name=obj.name, value=obj.value, shortcut=obj.keyboardShortcut)
+        for label, (_, value, shortcut) in expected.items():
+            control = actual[label]
+            self.check(f"Correct NVDA name, value and access key for {label}",
+                       control["name"] == label and control["value"] == value
+                       and (control["shortcut"] or "").replace(" ", "").lower() == shortcut)
+
+        tab_order = (
+            (dialog.detail, "Description detail"),
+            (dialog.size, "Maximum image size"),
+            (dialog.threads, "CPU threads"),
+            (dialog.speak, "Read descriptions aloud automatically"),
+        )
+        dialog.detail.SetFocus()
+        for (current, _), (following, label) in zip(tab_order, tab_order[1:]):
+            current.Navigate()
+            self.check(f"Tab navigation reaches {label}", wx.Window.FindFocus() == following)
+
     def run(self):
         try:
             from systemUtils import _getDesktopName
@@ -37,42 +70,55 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
             import speech
             speech.setSpeechMode(speech.SpeechMode.off)
             from globalPlugins.drishya import GlobalPlugin as Drishya
+            self.plugin = next((p for p in globalPluginHandler.runningPlugins if isinstance(p, Drishya)), None)
+            self.check("public API import and plugin initialization", self.plugin is not None and self.plugin.toolsItem is not None)
+            self.check("NVDA script gesture", "kb:NVDA+shift+i" in self.plugin.script_drishyaMenu.gestures)
+            # The private profile starts without the model. Choose Later so
+            # the welcome prompt does not block subsequent capture commands.
+            if self.plugin.downloadDialog:
+                self.plugin.downloadDialog.Destroy()
+                self.plugin._download_answer(False)
+            tray = gui.mainFrame.sysTrayIcon
+            event = wx.CommandEvent(wx.EVT_MENU.typeId, self.plugin.toolsItem.GetId())
+            event.SetEventObject(tray.toolsMenu)
+            self.check("NVDA tray handled Drishya Tools command", tray.ProcessEvent(event))
+            wx.CallAfter(self.check_settings_and_describe)
+        except Exception:
+            self.finish(traceback.format_exc())
+
+    def check_settings_and_describe(self):
+        try:
+            import inputCore
             from globalPlugins.drishya.capture import Snapshot
             from globalPlugins.drishya.engine import Engine
             from globalPlugins.drishya.geometry import Rect
             from globalPlugins.drishya.settings import Options
-            self.plugin = next((p for p in globalPluginHandler.runningPlugins if isinstance(p, Drishya)), None) or Drishya()
-            self.check("public API import and plugin initialization", self.plugin.toolsItem is not None)
-            self.check("NVDA script gesture", "kb:NVDA+shift+i" in self.plugin.script_drishyaMenu.gestures)
-            self.plugin._show_settings()
+
+            self.check("Tools command opened settings", self.plugin.settingsDialog is not None and self.plugin.settingsDialog.IsShown())
             self.check("native settings and config defaults", self.plugin.settingsDialog.read_options() == self.plugin.options())
+            self.check_settings_controls(self.plugin.settingsDialog)
+            commands = inputCore.manager.getAllGestureMappings(api.getDesktopObject(), [])["Drishya"]
+            for label in ("Describe the entire screen", "Describe the current window",
+                          "Describe the current focus", "Describe the navigator object"):
+                self.check(f"Input Gestures lists {label} without a default binding", label in commands and not commands[label].gestures)
             self.plugin._save_options(Options(detail="concise", speak=False))
             self.plugin._close_settings()
             self.plugin.runtime = self.root / "build/runtime"
             self.plugin.engine = Engine(self.plugin.runtime)
             captured = []
-            original_menu = self.plugin._open_menu
-            self.plugin._open_menu = lambda snapshot, focus, nav, error=None: captured.append(snapshot)
-            import ui
-            capture_messages = []
-            original_message = ui.message
-            try:
-                ui.message = capture_messages.append
-                self.plugin._capture_and_open(None, None)
-            finally:
-                ui.message = original_message
-            self.plugin._open_menu = original_menu
-            self.report["display_capture"] = {"available": bool(captured and captured[0]), "messages": capture_messages}
+            self.plugin._capture(lambda snapshot, error: captured.append((snapshot, error)))
+            snapshot, capture_error = captured[0]
+            self.report["display_capture"] = {"available": snapshot is not None, "error": capture_error}
             image = wx.Image(str(self.root / "qa/artifacts/photo-library.png"), wx.BITMAP_TYPE_PNG)
             rect = Rect(0, 0, image.GetWidth(), image.GetHeight())
             fixture = Snapshot(image, rect)
-            if not captured or captured[0] is None:
-                captured = [fixture]
+            if snapshot is None:
+                snapshot = fixture
             original_popup = gui.mainFrame.PopupMenu
             menu_labels = []
             try:
                 gui.mainFrame.PopupMenu = lambda menu: menu_labels.extend(item.GetItemLabelText() for item in menu.GetMenuItems())
-                self.plugin._open_menu(captured[0], captured[0].desktop, captured[0].desktop)
+                self.plugin._open_menu(snapshot, snapshot.desktop, snapshot.desktop)
             finally:
                 gui.mainFrame.PopupMenu = original_popup
             self.check("native context menu contains all three capture modes", all(
